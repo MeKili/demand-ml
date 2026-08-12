@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtualenv / uv
+.venv/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+
+# Environment & secrets
+.env
+
+# Data & model artifacts / experiment tracking
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
+mlruns/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
