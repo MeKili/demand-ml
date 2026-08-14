@@ -1,10 +1,12 @@
-"""Deterministic synthetic bike-share demand data for offline dev and tests.
+"""Bike-share demand data loaders: real UCI dataset and synthetic generator for tests.
 
-A real loader for the public UCI Bike Sharing dataset is a planned addition; the
-synthetic generator keeps development and CI fully offline and reproducible.
+The synthetic generator keeps development and CI fully offline and reproducible.
+The UCI loader fetches the public Bike Sharing dataset, caches it locally.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -36,3 +38,34 @@ def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
             "count": count,
         }
     )
+
+
+def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
+    """Load the UCI Bike Sharing dataset, caching it locally.
+
+    Downloads hourly data from UCI if not cached; returns a DataFrame with
+    columns: ``timestamp``, ``temp``, ``humidity``, ``windspeed``, ``count``.
+    """
+    cache_path = Path(data_dir) / "bike_sharing.csv"
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if cache_path.exists():
+        df = pd.read_csv(cache_path)
+    else:
+        url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00275/hour.csv"
+        df = pd.read_csv(url)
+        df.to_csv(cache_path, index=False)
+
+    df["dteday"] = pd.to_datetime(df["dteday"])
+    df["timestamp"] = df["dteday"] + pd.to_timedelta(df["hr"], unit="h")
+
+    normalized = pd.DataFrame(
+        {
+            "timestamp": df["timestamp"],
+            "temp": df["temp"] * 41.0,
+            "humidity": df["hum"],
+            "windspeed": df["windspeed"] * 67.0,
+            "count": df["cnt"],
+        }
+    )
+    return normalized
