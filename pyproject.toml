@@ -10,10 +10,10 @@ dependencies = [
     "pandas>=2.2",
     "scikit-learn>=1.4",
     "joblib>=1.5.3",
+    "mlflow>=2.12",
 ]
 
 # Added as the service grows:
-#   tracking:   mlflow
 #   serving:    fastapi, uvicorn[standard]
 #   monitoring: evidently
 
