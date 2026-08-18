@@ -11,10 +11,11 @@ dependencies = [
     "scikit-learn>=1.4",
     "joblib>=1.5.3",
     "mlflow>=2.12",
+    "fastapi>=0.104",
+    "uvicorn[standard]>=0.24",
 ]
 
 # Added as the service grows:
-#   serving:    fastapi, uvicorn[standard]
 #   monitoring: evidently
 
 [dependency-groups]
@@ -22,6 +23,7 @@ dev = [
     "ruff>=0.6",
     "mypy>=1.11",
     "pytest>=8",
+    "httpx>=0.24",
 ]
 
 [build-system]
