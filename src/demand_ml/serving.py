@@ -44,10 +44,7 @@ def health() -> HealthResponse:
 def predict_demand(
     request: PredictRequest, model_path: str = "models/baseline.joblib"
 ) -> PredictResponse:
-    """Predict demand given features.
-
-    Expects features as [temp, humidity, windspeed, hour, dayofweek, month, is_weekend].
-    """
+    """Return demand forecast for given features."""
     try:
         features_df = pd.DataFrame(
             [request.features],

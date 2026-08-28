@@ -16,18 +16,7 @@ def log_training_run(
     run_name: str | None = None,
     artifact_uri: str | None = None,
 ) -> str:
-    """Log a training run to MLflow with model and metrics.
-
-    Args:
-        model: Fitted sklearn estimator.
-        metrics: Dict of metric names to values (e.g., {'mae': 5.2, 'rmse': 7.1}).
-        experiment_name: MLflow experiment name; created if it doesn't exist.
-        run_name: Optional run name for display.
-        artifact_uri: Optional path to store artifacts; defaults to ./mlruns.
-
-    Returns:
-        The MLflow run ID.
-    """
+    """Log model and metrics to MLflow; return the run ID."""
     if artifact_uri:
         mlflow.set_tracking_uri(f"file:{artifact_uri}")
 

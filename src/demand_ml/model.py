@@ -16,10 +16,7 @@ from demand_ml.features import FEATURE_COLUMNS, TARGET_COLUMN, add_calendar_feat
 def train_model(
     df: pd.DataFrame, *, test_size: float = 0.2, random_state: int = 42
 ) -> tuple[Any, dict[str, float]]:
-    """Train a gradient-boosting regressor and return it with holdout metrics.
-
-    Returns the fitted estimator and a dict of ``mae`` and ``rmse`` on the holdout.
-    """
+    """Return fitted estimator and holdout metrics (mae, rmse)."""
     featured = add_calendar_features(df)
     features = featured[FEATURE_COLUMNS]
     target = featured[TARGET_COLUMN]
