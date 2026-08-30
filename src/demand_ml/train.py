@@ -16,7 +16,11 @@ def main() -> None:
     model, metrics = train_model(
         df, test_size=settings.test_size, random_state=settings.random_state
     )
-    print(f"MAE={metrics['mae']:.2f}  RMSE={metrics['rmse']:.2f}")
+    print(f"Holdout: MAE={metrics['mae_holdout']:.2f} RMSE={metrics['rmse_holdout']:.2f}")
+    print(
+        f"CV: MAE={metrics['mae_cv_mean']:.2f}±{metrics['mae_cv_std']:.2f} "
+        f"RMSE={metrics['rmse_cv_mean']:.2f}±{metrics['rmse_cv_std']:.2f}"
+    )
 
     model_path = f"{settings.model_dir}/baseline.joblib"
     save_model(model, model_path)
