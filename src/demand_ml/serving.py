@@ -6,6 +6,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, ConfigDict
 
+from demand_ml.features import FEATURE_COLUMNS
 from demand_ml.persistence import predict
 
 app = FastAPI(title="demand-ml", version="0.1.0")
@@ -46,10 +47,7 @@ def predict_demand(
 ) -> PredictResponse:
     """Return demand forecast for given features."""
     try:
-        features_df = pd.DataFrame(
-            [request.features],
-            columns=["temp", "humidity", "windspeed", "hour", "dayofweek", "month", "is_weekend"],
-        )
+        features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
         pred = predict(model_path, features_df, use_feature_subset=False)
         return PredictResponse(predicted_demand=float(pred.iloc[0]))
     except FileNotFoundError as e:
