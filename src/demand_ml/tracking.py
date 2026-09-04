@@ -16,7 +16,7 @@ def log_training_run(
     run_name: str | None = None,
     artifact_uri: str | None = None,
 ) -> str:
-    """Log a training run to MLflow with model and metrics."""
+    """Log model and metrics to MLflow; return the run ID."""
     if artifact_uri:
         mlflow.set_tracking_uri(f"file:{artifact_uri}")
 

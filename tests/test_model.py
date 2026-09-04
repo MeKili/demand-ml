@@ -9,6 +9,10 @@ def test_train_model_returns_finite_metrics() -> None:
     model, metrics = train_model(df, test_size=0.25, random_state=1)
 
     assert hasattr(model, "predict")
-    assert metrics["mae"] >= 0
-    assert metrics["rmse"] >= 0
-    assert metrics["mae"] < 1_000_000
+    assert metrics["mae_holdout"] >= 0
+    assert metrics["rmse_holdout"] >= 0
+    assert metrics["mae_holdout"] < 1_000_000
+    assert metrics["mae_cv_mean"] >= 0
+    assert metrics["rmse_cv_mean"] >= 0
+    assert metrics["mae_cv_std"] >= 0
+    assert metrics["rmse_cv_std"] >= 0

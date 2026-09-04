@@ -11,7 +11,7 @@ import pandas as pd
 def compute_psi(
     reference: pd.Series, current: pd.Series, n_bins: int = 10, epsilon: float = 1e-10
 ) -> float:
-    """Compute Population Stability Index (PSI) to measure feature drift."""
+    """Return PSI metric quantifying distribution shift between reference and current data."""
 
     def _psi_for_series(ref: pd.Series, cur: pd.Series) -> float:
         min_val = min(ref.min(), cur.min())
@@ -36,7 +36,7 @@ def detect_feature_drift(
     columns: list[str] | None = None,
     psi_threshold: float = 0.1,
 ) -> dict[str, Any]:
-    """Detect feature drift across multiple features via PSI scores."""
+    """Return {'has_drift': bool, 'psi_by_feature': dict} detecting drift via PSI."""
     if columns is None:
         columns = reference_df.select_dtypes(include=[np.number]).columns.tolist()
 

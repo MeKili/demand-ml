@@ -26,7 +26,7 @@ def load_model(filepath: str | Path) -> Any:
 def predict(
     model: Any | str | Path, features: pd.DataFrame, *, use_feature_subset: bool = True
 ) -> pd.Series:
-    """Predict demand given features, loading the model from disk if needed."""
+    """Return demand predictions, loading model from path if needed."""
     if isinstance(model, (str, Path)):
         model = load_model(model)
 
