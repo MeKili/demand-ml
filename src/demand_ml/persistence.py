@@ -26,17 +26,7 @@ def load_model(filepath: str | Path) -> Any:
 def predict(
     model: Any | str | Path, features: pd.DataFrame, *, use_feature_subset: bool = True
 ) -> pd.Series:
-    """Predict demand on features, loading the model if a filepath is given.
-
-    Args:
-        model: A fitted estimator, or a filepath to load one from.
-        features: DataFrame with columns matching FEATURE_COLUMNS.
-        use_feature_subset: If True, extract only FEATURE_COLUMNS from the input.
-            Set to False if features are already aligned.
-
-    Returns:
-        Predicted demand as a Series.
-    """
+    """Predict demand given features, loading the model from disk if needed."""
     if isinstance(model, (str, Path)):
         model = load_model(model)
 

@@ -11,20 +11,7 @@ import pandas as pd
 def compute_psi(
     reference: pd.Series, current: pd.Series, n_bins: int = 10, epsilon: float = 1e-10
 ) -> float:
-    """Compute Population Stability Index (PSI) between two distributions.
-
-    PSI measures how much a feature distribution has shifted from training (reference)
-    to production (current). PSI > 0.25 indicates moderate drift; > 0.1 is noticeable.
-
-    Args:
-        reference: Series of feature values from training data.
-        current: Series of feature values from current/production data.
-        n_bins: Number of bins for histogram binning.
-        epsilon: Small value to avoid log(0).
-
-    Returns:
-        PSI value (float >= 0). Higher values indicate greater drift.
-    """
+    """Compute Population Stability Index (PSI) to measure feature drift."""
 
     def _psi_for_series(ref: pd.Series, cur: pd.Series) -> float:
         min_val = min(ref.min(), cur.min())
@@ -49,17 +36,7 @@ def detect_feature_drift(
     columns: list[str] | None = None,
     psi_threshold: float = 0.1,
 ) -> dict[str, Any]:
-    """Detect feature drift across multiple features.
-
-    Args:
-        reference_df: Training/baseline feature data.
-        current_df: Current/production feature data.
-        columns: List of column names to check; if None, uses all numeric columns.
-        psi_threshold: PSI threshold above which to flag drift.
-
-    Returns:
-        Dict with keys 'has_drift' (bool) and 'psi_by_feature' (dict of feature -> PSI).
-    """
+    """Detect feature drift across multiple features via PSI scores."""
     if columns is None:
         columns = reference_df.select_dtypes(include=[np.number]).columns.tolist()
 

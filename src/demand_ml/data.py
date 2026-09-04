@@ -1,8 +1,4 @@
-"""Bike-share demand data loaders: real UCI dataset and synthetic generator for tests.
-
-The synthetic generator keeps development and CI fully offline and reproducible.
-The UCI loader fetches the public Bike Sharing dataset, caches it locally.
-"""
+"""Bike-share demand data loaders: UCI dataset and synthetic generator."""
 
 from __future__ import annotations
 
@@ -13,11 +9,7 @@ import pandas as pd
 
 
 def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
-    """Generate a reproducible hourly demand dataset.
-
-    Columns: ``timestamp``, ``temp``, ``humidity``, ``windspeed``, ``count``.
-    Demand rises around commute hours and with milder temperatures.
-    """
+    """Generate a reproducible synthetic hourly demand dataset."""
     rng = np.random.default_rng(seed)
     timestamps = pd.date_range("2026-01-01", periods=n_rows, freq="h")
     temp = rng.normal(15.0, 8.0, n_rows)
@@ -41,11 +33,7 @@ def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
 
 
 def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
-    """Load the UCI Bike Sharing dataset, caching it locally.
-
-    Downloads hourly data from UCI if not cached; returns a DataFrame with
-    columns: ``timestamp``, ``temp``, ``humidity``, ``windspeed``, ``count``.
-    """
+    """Load and cache the UCI Bike Sharing dataset."""
     cache_path = Path(data_dir) / "bike_sharing.csv"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
