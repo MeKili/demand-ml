@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 import pandas as pd
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
 from demand_ml.features import FEATURE_COLUMNS
-from demand_ml.persistence import predict
+from demand_ml.persistence import load_model, predict
 
-app = FastAPI(title="demand-ml", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Load model at startup, cleanup resources at shutdown."""
+    model_path = Path("models/baseline.joblib")
+    if model_path.exists():
+        app.state.model = load_model(model_path)
+    else:
+        app.state.model = None
+    yield
+
+
+app = FastAPI(title="demand-ml", version="0.1.0", lifespan=lifespan)
 
 
 class HealthResponse(BaseModel):
@@ -42,13 +58,14 @@ def health() -> HealthResponse:
 
 
 @app.post("/predict", response_model=PredictResponse)
-def predict_demand(
-    request: PredictRequest, model_path: str = "models/baseline.joblib"
-) -> PredictResponse:
+def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
     """Return demand forecast for given features."""
+    model = getattr(req.app.state, "model", None)
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded at startup")
     try:
         features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
-        pred = predict(model_path, features_df, use_feature_subset=False)
+        pred = predict(model, features_df, use_feature_subset=False)
         return PredictResponse(predicted_demand=float(pred.iloc[0]))
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
