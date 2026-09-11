@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import cross_validate, train_test_split
 
 from demand_ml.features import FEATURE_COLUMNS, TARGET_COLUMN, add_calendar_features
 
@@ -31,22 +31,18 @@ def train_model(
     mae_holdout = float(mean_absolute_error(y_test, preds))
     rmse_holdout = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-    cv_mae_scores = -cross_val_score(
+    cv_results = cross_validate(
         HistGradientBoostingRegressor(random_state=random_state),
         features,
         target,
         cv=cv,
-        scoring="neg_mean_absolute_error",
+        scoring={
+            "mae": "neg_mean_absolute_error",
+            "mse": "neg_mean_squared_error",
+        },
     )
-    cv_rmse_scores = np.sqrt(
-        -cross_val_score(
-            HistGradientBoostingRegressor(random_state=random_state),
-            features,
-            target,
-            cv=cv,
-            scoring="neg_mean_squared_error",
-        )
-    )
+    cv_mae_scores = -cv_results["test_mae"]
+    cv_rmse_scores = np.sqrt(-cv_results["test_mse"])
 
     metrics = {
         "mae_holdout": mae_holdout,
