@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.metrics import mean_absolute_error, mean_squared_error
-from sklearn.model_selection import GridSearchCV, cross_val_score, cross_validate, train_test_split
+from sklearn.model_selection import GridSearchCV, cross_validate, train_test_split
 
 from demand_ml.features import FEATURE_COLUMNS, TARGET_COLUMN, add_calendar_features
 
