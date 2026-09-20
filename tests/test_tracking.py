@@ -60,3 +60,23 @@ def test_log_training_run_with_run_name() -> None:
         log_training_run(model, metrics, run_name="my-baseline")
 
         mock_mlflow.start_run.assert_called_once_with(run_name="my-baseline")
+
+
+def test_log_training_run_with_hyperparameters() -> None:
+    """Verify that log_training_run logs hyperparameters when provided."""
+    df = make_synthetic_demand(n_rows=200, seed=1)
+    model, metrics = train_model(df, test_size=0.25, random_state=1)
+
+    with mock.patch("demand_ml.tracking.mlflow") as mock_mlflow:
+        mock_run = mock.MagicMock()
+        mock_run.info.run_id = "test-run-hp"
+        mock_mlflow.active_run.return_value = mock_run
+        mock_mlflow.start_run.return_value.__enter__.return_value = None
+        mock_mlflow.start_run.return_value.__exit__.return_value = None
+
+        params = {"learning_rate": 0.1, "max_depth": 5}
+        log_training_run(model, metrics, params=params)
+
+        assert mock_mlflow.log_param.call_count == 2
+        mock_mlflow.log_param.assert_any_call("learning_rate", 0.1)
+        mock_mlflow.log_param.assert_any_call("max_depth", 5)

@@ -15,14 +15,18 @@ def log_training_run(
     experiment_name: str = "demand-forecasting",
     run_name: str | None = None,
     artifact_uri: str | None = None,
+    params: dict[str, Any] | None = None,
 ) -> str:
-    """Log model and metrics to MLflow; return the run ID."""
+    """Log model, metrics, and hyperparameters to MLflow; return the run ID."""
     if artifact_uri:
         mlflow.set_tracking_uri(f"file:{artifact_uri}")
 
     mlflow.set_experiment(experiment_name)
 
     with mlflow.start_run(run_name=run_name):
+        if params:
+            for key, value in params.items():
+                mlflow.log_param(key, value)
         for key, value in metrics.items():
             mlflow.log_metric(key, value)
         mlflow.sklearn.log_model(model, "model")
