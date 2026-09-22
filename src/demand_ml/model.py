@@ -55,6 +55,14 @@ def train_model(
     return model, metrics
 
 
+def compute_feature_importance(model: Any, feature_names: list[str]) -> dict[str, float]:
+    """Return dict mapping feature names to their importance scores."""
+    if hasattr(model, "feature_importances_"):
+        importances = model.feature_importances_
+        return dict(zip(feature_names, map(float, importances), strict=True))
+    return {}
+
+
 def tune_hyperparameters(
     df: pd.DataFrame,
     *,

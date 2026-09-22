@@ -80,3 +80,24 @@ def test_log_training_run_with_hyperparameters() -> None:
         assert mock_mlflow.log_param.call_count == 2
         mock_mlflow.log_param.assert_any_call("learning_rate", 0.1)
         mock_mlflow.log_param.assert_any_call("max_depth", 5)
+
+
+def test_log_training_run_with_feature_importance() -> None:
+    """Verify that log_training_run logs feature importance when provided."""
+    df = make_synthetic_demand(n_rows=200, seed=1)
+    model, metrics = train_model(df, test_size=0.25, random_state=1)
+
+    with mock.patch("demand_ml.tracking.mlflow") as mock_mlflow:
+        mock_run = mock.MagicMock()
+        mock_run.info.run_id = "test-run-fi"
+        mock_mlflow.active_run.return_value = mock_run
+        mock_mlflow.start_run.return_value.__enter__.return_value = None
+        mock_mlflow.start_run.return_value.__exit__.return_value = None
+
+        feature_importance = {"temp": 0.3, "hour": 0.5, "humidity": 0.2}
+        log_training_run(model, metrics, feature_importance=feature_importance)
+
+        assert mock_mlflow.log_metric.call_count >= 3
+        mock_mlflow.log_metric.assert_any_call("feature_importance_temp", 0.3)
+        mock_mlflow.log_metric.assert_any_call("feature_importance_hour", 0.5)
+        mock_mlflow.log_metric.assert_any_call("feature_importance_humidity", 0.2)
