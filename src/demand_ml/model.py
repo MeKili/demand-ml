@@ -13,6 +13,31 @@ from sklearn.model_selection import GridSearchCV, cross_validate, train_test_spl
 from demand_ml.features import FEATURE_COLUMNS, TARGET_COLUMN, add_calendar_features
 
 
+def _compute_cv_metrics(
+    model: Any, features: pd.DataFrame, target: pd.Series, cv: int = 5
+) -> dict[str, float]:
+    """Compute cross-validation metrics for MAE and RMSE."""
+    cv_results = cross_validate(
+        model,
+        features,
+        target,
+        cv=cv,
+        scoring={
+            "mae": "neg_mean_absolute_error",
+            "mse": "neg_mean_squared_error",
+        },
+    )
+    cv_mae_scores = -cv_results["test_mae"]
+    cv_rmse_scores = np.sqrt(-cv_results["test_mse"])
+
+    return {
+        "mae_cv_mean": float(cv_mae_scores.mean()),
+        "mae_cv_std": float(cv_mae_scores.std()),
+        "rmse_cv_mean": float(cv_rmse_scores.mean()),
+        "rmse_cv_std": float(cv_rmse_scores.std()),
+    }
+
+
 def train_model(
     df: pd.DataFrame, *, test_size: float = 0.2, random_state: int = 42, cv: int = 5
 ) -> tuple[Any, dict[str, float]]:
@@ -31,26 +56,13 @@ def train_model(
     mae_holdout = float(mean_absolute_error(y_test, preds))
     rmse_holdout = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-    cv_results = cross_validate(
-        HistGradientBoostingRegressor(random_state=random_state),
-        features,
-        target,
-        cv=cv,
-        scoring={
-            "mae": "neg_mean_absolute_error",
-            "mse": "neg_mean_squared_error",
-        },
-    )
-    cv_mae_scores = -cv_results["test_mae"]
-    cv_rmse_scores = np.sqrt(-cv_results["test_mse"])
+    cv_model = HistGradientBoostingRegressor(random_state=random_state)
+    cv_metrics = _compute_cv_metrics(cv_model, features, target, cv)
 
     metrics = {
         "mae_holdout": mae_holdout,
         "rmse_holdout": rmse_holdout,
-        "mae_cv_mean": float(cv_mae_scores.mean()),
-        "mae_cv_std": float(cv_mae_scores.std()),
-        "rmse_cv_mean": float(cv_rmse_scores.mean()),
-        "rmse_cv_std": float(cv_rmse_scores.std()),
+        **cv_metrics,
     }
     return model, metrics
 
@@ -98,25 +110,11 @@ def tune_hyperparameters(
     mae_holdout = float(mean_absolute_error(y_test, preds))
     rmse_holdout = float(np.sqrt(mean_squared_error(y_test, preds)))
 
-    cv_results = cross_validate(
-        model,
-        features,
-        target,
-        cv=cv,
-        scoring={
-            "mae": "neg_mean_absolute_error",
-            "mse": "neg_mean_squared_error",
-        },
-    )
-    cv_mae_scores = -cv_results["test_mae"]
-    cv_rmse_scores = np.sqrt(-cv_results["test_mse"])
+    cv_metrics = _compute_cv_metrics(model, features, target, cv)
 
     metrics = {
         "mae_holdout": mae_holdout,
         "rmse_holdout": rmse_holdout,
-        "mae_cv_mean": float(cv_mae_scores.mean()),
-        "mae_cv_std": float(cv_mae_scores.std()),
-        "rmse_cv_mean": float(cv_rmse_scores.mean()),
-        "rmse_cv_std": float(cv_rmse_scores.std()),
+        **cv_metrics,
     }
     return model, metrics, grid.best_params_
