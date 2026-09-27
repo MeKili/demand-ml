@@ -63,6 +63,11 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
     model = getattr(req.app.state, "model", None)
     if model is None:
         raise HTTPException(status_code=503, detail="Model not loaded at startup")
+    if len(request.features) != len(FEATURE_COLUMNS):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Expected {len(FEATURE_COLUMNS)} features, got {len(request.features)}",
+        )
     try:
         features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
         pred = predict(model, features_df, use_feature_subset=False)
