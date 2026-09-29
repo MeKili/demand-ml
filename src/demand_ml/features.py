@@ -5,7 +5,10 @@ from __future__ import annotations
 import pandas as pd
 
 FEATURE_COLUMNS = ["temp", "humidity", "windspeed", "hour", "dayofweek", "month", "is_weekend"]
+"""Features used in model training and prediction."""
+
 TARGET_COLUMN = "count"
+"""Target variable: hourly bike demand count."""
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
