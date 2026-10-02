@@ -12,7 +12,7 @@ TARGET_COLUMN = "count"
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Return a copy of ``df`` with calendar features derived from ``timestamp``."""
+    """Add calendar features to dataframe."""
     out = df.copy()
     ts = pd.to_datetime(out["timestamp"])
     out["hour"] = ts.dt.hour
