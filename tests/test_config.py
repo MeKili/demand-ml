@@ -8,6 +8,7 @@ def test_settings_defaults() -> None:
     assert 0 < settings.test_size < 1
     assert settings.model_dir
     assert settings.mlflow_tracking_uri
+    assert settings.model_filename == "baseline.joblib"
 
 
 def test_get_settings_is_cached() -> None:

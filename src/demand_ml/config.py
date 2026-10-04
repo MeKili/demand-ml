@@ -18,6 +18,7 @@ class Settings(BaseSettings):
 
     data_dir: str = "data"
     model_dir: str = "models"
+    model_filename: str = "baseline.joblib"
     mlflow_tracking_uri: str = "file:./mlruns"
     test_size: float = 0.2
     random_state: int = 42

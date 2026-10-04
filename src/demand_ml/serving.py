@@ -10,6 +10,7 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
 from pydantic import BaseModel, ConfigDict
 
+from demand_ml.config import get_settings
 from demand_ml.features import FEATURE_COLUMNS
 from demand_ml.persistence import load_model, predict
 
@@ -17,7 +18,8 @@ from demand_ml.persistence import load_model, predict
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Load model at startup, cleanup resources at shutdown."""
-    model_path = Path("models/baseline.joblib")
+    settings = get_settings()
+    model_path = Path(settings.model_dir) / settings.model_filename
     if model_path.exists():
         app.state.model = load_model(model_path)
     else:
