@@ -12,7 +12,7 @@ from demand_ml.features import FEATURE_COLUMNS
 
 
 def save_model(model: Any, filepath: str | Path) -> None:
-    """Persist a fitted sklearn estimator to disk using joblib."""
+    """Save a fitted sklearn estimator."""
     path = Path(filepath)
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(model, path)
@@ -26,7 +26,7 @@ def load_model(filepath: str | Path) -> Any:
 def predict(
     model: Any | str | Path, features: pd.DataFrame, *, use_feature_subset: bool = True
 ) -> pd.Series:
-    """Return demand predictions, loading model from path if needed."""
+    """Return demand predictions."""
     if isinstance(model, (str, Path)):
         model = load_model(model)
 
