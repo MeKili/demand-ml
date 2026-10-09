@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+import pytest
 
 from demand_ml.data import load_uci_bike_sharing, make_synthetic_demand
 
@@ -53,3 +54,24 @@ def test_load_uci_bike_sharing_caches_locally() -> None:
             df2 = load_uci_bike_sharing(data_dir=tmpdir)
             assert call_count[0] == 1
             pd.testing.assert_frame_equal(df, df2)
+
+
+def test_load_uci_bike_sharing_missing_columns() -> None:
+    incomplete_df = pd.DataFrame(
+        {
+            "dteday": ["2011-01-01"],
+            "hr": [0],
+            "temp": [0.24],
+        }
+    )
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+
+        def mock_read_csv(path: str | Path, *args: object, **kwargs: object) -> pd.DataFrame:
+            return incomplete_df
+
+        with (
+            patch("pandas.read_csv", side_effect=mock_read_csv),
+            pytest.raises(ValueError, match="Missing required columns"),
+        ):
+            load_uci_bike_sharing(data_dir=tmpdir)
