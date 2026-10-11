@@ -26,13 +26,14 @@ def log_training_run(
 
     with mlflow.start_run(run_name=run_name):
         if params:
-            for key, value in params.items():
-                mlflow.log_param(key, value)
-        for key, value in metrics.items():
-            mlflow.log_metric(key, value)
+            mlflow.log_params(params)
+        mlflow.log_metrics(metrics)
         if feature_importance:
-            for feature, importance in feature_importance.items():
-                mlflow.log_metric(f"feature_importance_{feature}", importance)
+            importance_metrics = {
+                f"feature_importance_{feature}": importance
+                for feature, importance in feature_importance.items()
+            }
+            mlflow.log_metrics(importance_metrics)
         mlflow.sklearn.log_model(model, "model")
         active = mlflow.active_run()
         assert active is not None

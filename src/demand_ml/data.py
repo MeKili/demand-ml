@@ -44,6 +44,11 @@ def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
         df = pd.read_csv(url)
         df.to_csv(cache_path, index=False)
 
+    required_cols = ["dteday", "hr", "temp", "hum", "windspeed", "cnt"]
+    missing = set(required_cols) - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns: {missing}")
+
     df["dteday"] = pd.to_datetime(df["dteday"])
     df["timestamp"] = df["dteday"] + pd.to_timedelta(df["hr"], unit="h")
 

@@ -77,9 +77,7 @@ def test_log_training_run_with_hyperparameters() -> None:
         params = {"learning_rate": 0.1, "max_depth": 5}
         log_training_run(model, metrics, params=params)
 
-        assert mock_mlflow.log_param.call_count == 2
-        mock_mlflow.log_param.assert_any_call("learning_rate", 0.1)
-        mock_mlflow.log_param.assert_any_call("max_depth", 5)
+        mock_mlflow.log_params.assert_called_once_with(params)
 
 
 def test_log_training_run_with_feature_importance() -> None:
@@ -97,7 +95,11 @@ def test_log_training_run_with_feature_importance() -> None:
         feature_importance = {"temp": 0.3, "hour": 0.5, "humidity": 0.2}
         log_training_run(model, metrics, feature_importance=feature_importance)
 
-        assert mock_mlflow.log_metric.call_count >= 3
-        mock_mlflow.log_metric.assert_any_call("feature_importance_temp", 0.3)
-        mock_mlflow.log_metric.assert_any_call("feature_importance_hour", 0.5)
-        mock_mlflow.log_metric.assert_any_call("feature_importance_humidity", 0.2)
+        # Check that log_metrics was called with feature importance metrics
+        calls = mock_mlflow.log_metrics.call_args_list
+        assert len(calls) >= 1
+        # Last call should contain feature importance metrics
+        last_call_metrics = calls[-1][0][0]
+        assert last_call_metrics["feature_importance_temp"] == 0.3
+        assert last_call_metrics["feature_importance_hour"] == 0.5
+        assert last_call_metrics["feature_importance_humidity"] == 0.2
