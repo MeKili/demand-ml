@@ -53,6 +53,18 @@ class PredictResponse(BaseModel):
     predicted_demand: float
 
 
+class BatchPredictRequest(BaseModel):
+    """Batch prediction request with multiple feature sets."""
+
+    features_list: list[list[float]]
+
+
+class BatchPredictResponse(BaseModel):
+    """Batch prediction response with multiple forecasts."""
+
+    predictions: list[float]
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """Check if the service is running."""
@@ -78,3 +90,26 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
         raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction failed: {e}") from e
+
+
+@app.post("/predict-batch", response_model=BatchPredictResponse)
+def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictResponse:
+    """Return demand forecasts for multiple feature sets."""
+    model = getattr(req.app.state, "model", None)
+    if model is None:
+        raise HTTPException(status_code=503, detail="Model not loaded at startup")
+    if not request.features_list:
+        raise HTTPException(status_code=400, detail="features_list cannot be empty")
+    if any(len(f) != len(FEATURE_COLUMNS) for f in request.features_list):
+        raise HTTPException(
+            status_code=400,
+            detail=f"All feature sets must have {len(FEATURE_COLUMNS)} features",
+        )
+    try:
+        features_df = pd.DataFrame(request.features_list, columns=FEATURE_COLUMNS)
+        preds = predict(model, features_df, use_feature_subset=False)
+        return BatchPredictResponse(predictions=preds.tolist())
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Batch prediction failed: {e}") from e
