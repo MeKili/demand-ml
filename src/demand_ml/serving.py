@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from demand_ml.config import get_settings
 from demand_ml.features import FEATURE_COLUMNS
+from demand_ml.monitoring import detect_feature_drift
 from demand_ml.persistence import load_model, predict
 
 
@@ -65,6 +66,21 @@ class BatchPredictResponse(BaseModel):
     predictions: list[float]
 
 
+class DriftCheckRequest(BaseModel):
+    """Drift check request with reference and current feature data."""
+
+    reference_features: list[list[float]]
+    current_features: list[list[float]]
+    psi_threshold: float = 0.1
+
+
+class DriftCheckResponse(BaseModel):
+    """Drift detection response indicating if drift was found."""
+
+    has_drift: bool
+    psi_by_feature: dict[str, float]
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """Check if the service is running."""
@@ -113,3 +129,34 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
         raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Batch prediction failed: {e}") from e
+
+
+@app.post("/drift-check", response_model=DriftCheckResponse)
+def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
+    """Detect feature drift between reference and current data via PSI."""
+    if not request.reference_features:
+        raise HTTPException(status_code=400, detail="reference_features cannot be empty")
+    if not request.current_features:
+        raise HTTPException(status_code=400, detail="current_features cannot be empty")
+    if any(len(f) != len(FEATURE_COLUMNS) for f in request.reference_features):
+        raise HTTPException(
+            status_code=400,
+            detail=f"All reference features must have {len(FEATURE_COLUMNS)} features",
+        )
+    if any(len(f) != len(FEATURE_COLUMNS) for f in request.current_features):
+        raise HTTPException(
+            status_code=400,
+            detail=f"All current features must have {len(FEATURE_COLUMNS)} features",
+        )
+    try:
+        reference_df = pd.DataFrame(request.reference_features, columns=FEATURE_COLUMNS)
+        current_df = pd.DataFrame(request.current_features, columns=FEATURE_COLUMNS)
+        drift_result = detect_feature_drift(
+            reference_df, current_df, psi_threshold=request.psi_threshold
+        )
+        return DriftCheckResponse(
+            has_drift=drift_result["has_drift"],
+            psi_by_feature=drift_result["psi_by_feature"],
+        )
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Drift check failed: {e}") from e
