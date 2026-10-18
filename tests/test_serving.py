@@ -292,3 +292,31 @@ def test_drift_check_invalid_feature_count() -> None:
         }
         response = client.post("/drift-check", json=request_payload)
         assert response.status_code == 400
+
+
+def test_logging_on_prediction(caplog: Any) -> None:
+    """Test that prediction endpoint logs correctly."""
+    import logging
+
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/predict")(predict_demand)
+
+    with caplog.at_level(logging.INFO, logger="demand_ml.serving"), TestClient(app) as client:
+        request_payload = {"features": [15.5, 60.0, 10.0, 9, 3, 8, 1]}
+        response = client.post("/predict", json=request_payload)
+
+    assert response.status_code == 200
+    assert any("Prediction completed" in record.message for record in caplog.records)
