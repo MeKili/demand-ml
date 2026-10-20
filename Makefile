@@ -1,7 +1,7 @@
 # demand-ml — task shortcuts.
 # Windows note: if you don't have `make`, run the command under each target directly.
 
-.PHONY: install lint fmt typecheck test check train
+.PHONY: install lint fmt typecheck test check train serve
 
 install:        ## Install deps (incl. dev) into the uv-managed venv
 	uv sync
@@ -20,5 +20,8 @@ test:           ## Run the test suite
 
 check: lint typecheck test   ## Everything CI runs
 
-train:          ## Train the baseline model on synthetic data
+train:          ## Train the baseline model on real UCI data
 	uv run python -m demand_ml.train
+
+serve:          ## Start the FastAPI server (dev mode with auto-reload)
+	uv run uvicorn demand_ml.serving:app --reload
