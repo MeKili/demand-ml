@@ -6,6 +6,7 @@ import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
@@ -17,6 +18,22 @@ from demand_ml.monitoring import detect_feature_drift
 from demand_ml.persistence import load_model, predict
 
 logger = logging.getLogger(__name__)
+
+
+def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
+    """Validate feature count matches expected dimensions."""
+    if single:
+        if len(feature_list) != len(FEATURE_COLUMNS):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Expected {len(FEATURE_COLUMNS)} features, got {len(feature_list)}",
+            )
+    else:
+        if any(len(f) != len(FEATURE_COLUMNS) for f in feature_list):
+            raise HTTPException(
+                status_code=400,
+                detail=f"All feature sets must have {len(FEATURE_COLUMNS)} features",
+            )
 
 
 @asynccontextmanager
@@ -101,14 +118,13 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
     if model is None:
         logger.error("Prediction requested but model not loaded")
         raise HTTPException(status_code=503, detail="Model not loaded at startup")
-    if len(request.features) != len(FEATURE_COLUMNS):
+    try:
+        _validate_feature_count(request.features, single=True)
+    except HTTPException:
         logger.warning(
             f"Invalid feature count: expected {len(FEATURE_COLUMNS)}, got {len(request.features)}"
         )
-        raise HTTPException(
-            status_code=400,
-            detail=f"Expected {len(FEATURE_COLUMNS)} features, got {len(request.features)}",
-        )
+        raise
     try:
         features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
         pred = predict(model, features_df, use_feature_subset=False)
@@ -133,12 +149,11 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
     if not request.features_list:
         logger.warning("Batch prediction requested with empty features_list")
         raise HTTPException(status_code=400, detail="features_list cannot be empty")
-    if any(len(f) != len(FEATURE_COLUMNS) for f in request.features_list):
+    try:
+        _validate_feature_count(request.features_list, single=False)
+    except HTTPException:
         logger.warning("Batch prediction: invalid feature count in some samples")
-        raise HTTPException(
-            status_code=400,
-            detail=f"All feature sets must have {len(FEATURE_COLUMNS)} features",
-        )
+        raise
     try:
         features_df = pd.DataFrame(request.features_list, columns=FEATURE_COLUMNS)
         preds = predict(model, features_df, use_feature_subset=False)
@@ -161,18 +176,16 @@ def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
     if not request.current_features:
         logger.warning("Drift check requested with empty current_features")
         raise HTTPException(status_code=400, detail="current_features cannot be empty")
-    if any(len(f) != len(FEATURE_COLUMNS) for f in request.reference_features):
+    try:
+        _validate_feature_count(request.reference_features, single=False)
+    except HTTPException:
         logger.warning("Drift check: invalid feature count in reference_features")
-        raise HTTPException(
-            status_code=400,
-            detail=f"All reference features must have {len(FEATURE_COLUMNS)} features",
-        )
-    if any(len(f) != len(FEATURE_COLUMNS) for f in request.current_features):
+        raise
+    try:
+        _validate_feature_count(request.current_features, single=False)
+    except HTTPException:
         logger.warning("Drift check: invalid feature count in current_features")
-        raise HTTPException(
-            status_code=400,
-            detail=f"All current features must have {len(FEATURE_COLUMNS)} features",
-        )
+        raise
     try:
         reference_df = pd.DataFrame(request.reference_features, columns=FEATURE_COLUMNS)
         current_df = pd.DataFrame(request.current_features, columns=FEATURE_COLUMNS)
