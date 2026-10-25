@@ -191,6 +191,32 @@ def test_predict_batch_invalid_features() -> None:
         assert response.status_code == 400
 
 
+def test_predict_batch_exceeds_size_limit() -> None:
+    """Test /predict-batch endpoint rejects batches exceeding size limit."""
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/predict-batch")(predict_batch)
+
+    with TestClient(app) as client:
+        features_list = [[15.5, 60.0, 10.0, 9, 3, 8, 1] for _ in range(1001)]
+        request_payload = {"features_list": features_list}
+        response = client.post("/predict-batch", json=request_payload)
+        assert response.status_code == 400
+        assert "exceeds max" in response.json()["detail"]
+
+
 def test_drift_check_no_drift() -> None:
     """Test /drift-check endpoint detects no drift for similar distributions."""
 

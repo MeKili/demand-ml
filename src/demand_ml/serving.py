@@ -149,6 +149,16 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
     if not request.features_list:
         logger.warning("Batch prediction requested with empty features_list")
         raise HTTPException(status_code=400, detail="features_list cannot be empty")
+    max_batch_size = 1000
+    if len(request.features_list) > max_batch_size:
+        logger.warning(
+            f"Batch prediction requested with {len(request.features_list)} samples, "
+            f"exceeds max {max_batch_size}"
+        )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Batch size {len(request.features_list)} exceeds max {max_batch_size}",
+        )
     try:
         _validate_feature_count(request.features_list, single=False)
     except HTTPException:
