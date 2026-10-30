@@ -21,9 +21,10 @@ def test_tune_main_runs_without_error(tmp_path: object) -> None:
         mock_settings.test_size = 0.2
         mock_settings.random_state = 42
 
-        with patch("demand_ml.tune.get_settings", return_value=mock_settings), patch(
-            "demand_ml.tune.load_uci_bike_sharing"
-        ) as mock_load:
+        with (
+            patch("demand_ml.tune.get_settings", return_value=mock_settings),
+            patch("demand_ml.tune.load_uci_bike_sharing") as mock_load,
+        ):
             # Use synthetic data instead of downloading
             df = make_synthetic_demand(n_rows=100)
             mock_load.return_value = df
