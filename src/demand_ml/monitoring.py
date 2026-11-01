@@ -11,9 +11,10 @@ import pandas as pd
 def compute_psi(
     reference: pd.Series, current: pd.Series, n_bins: int = 10, epsilon: float = 1e-10
 ) -> float:
-    """Return PSI metric for distribution shift detection."""
+    """Compute Population Stability Index (PSI) for a single numeric feature."""
 
     def _psi_for_series(ref: pd.Series, cur: pd.Series) -> float:
+        """Compute PSI between reference and current distributions using histograms."""
         min_val = min(ref.min(), cur.min())
         max_val = max(ref.max(), cur.max())
         bins = np.linspace(min_val, max_val, n_bins + 1)
@@ -36,7 +37,7 @@ def detect_feature_drift(
     columns: list[str] | None = None,
     psi_threshold: float = 0.1,
 ) -> dict[str, Any]:
-    """Detect feature drift via PSI."""
+    """Detect feature drift by comparing reference and current distributions using PSI."""
     if columns is None:
         columns = reference_df.select_dtypes(include=[np.number]).columns.tolist()
 

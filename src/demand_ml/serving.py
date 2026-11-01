@@ -21,7 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
-    """Validate feature count matches expected dimensions."""
+    """Validate that feature list(s) have the correct number of features.
+
+    Raises HTTPException with status 400 if count mismatch.
+    """
     if single:
         if len(feature_list) != len(FEATURE_COLUMNS):
             raise HTTPException(
@@ -38,7 +41,7 @@ def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Load model at startup, cleanup resources at shutdown."""
+    """Manage application lifecycle: load model on startup, log shutdown."""
     settings = get_settings()
     model_path = Path(settings.model_dir) / settings.model_filename
     if model_path.exists():

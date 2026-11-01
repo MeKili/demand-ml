@@ -11,7 +11,7 @@ from demand_ml.tracking import log_training_run
 
 
 def main() -> None:
-    """Tune hyperparameters on real data, save tuned model, and log to MLflow."""
+    """Tune model hyperparameters via grid search and log best model to MLflow."""
     settings = get_settings()
     df = load_uci_bike_sharing(settings.data_dir)
     model, metrics, best_params = tune_hyperparameters(

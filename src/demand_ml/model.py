@@ -16,7 +16,7 @@ from demand_ml.features import FEATURE_COLUMNS, TARGET_COLUMN, add_calendar_feat
 def _compute_cv_metrics(
     model: Any, features: pd.DataFrame, target: pd.Series, cv: int = 5
 ) -> dict[str, float]:
-    """Compute cross-validation metrics."""
+    """Compute cross-validation metrics (MAE and RMSE) for model evaluation."""
     cv_results = cross_validate(
         model,
         features,
@@ -41,7 +41,7 @@ def _compute_cv_metrics(
 def train_model(
     df: pd.DataFrame, *, test_size: float = 0.2, random_state: int = 42, cv: int = 5
 ) -> tuple[Any, dict[str, float]]:
-    """Return fitted estimator and metrics (holdout + cross-validation)."""
+    """Train HistGradientBoosting model with holdout and cross-validation evaluation."""
     featured = add_calendar_features(df)
     features = featured[FEATURE_COLUMNS]
     target = featured[TARGET_COLUMN]
@@ -68,7 +68,7 @@ def train_model(
 
 
 def compute_feature_importance(model: Any, feature_names: list[str]) -> dict[str, float]:
-    """Return feature importance scores."""
+    """Extract feature importance scores from a sklearn estimator."""
     if hasattr(model, "feature_importances_"):
         importances = model.feature_importances_
         return dict(zip(feature_names, map(float, importances), strict=True))
@@ -82,7 +82,7 @@ def tune_hyperparameters(
     random_state: int = 42,
     cv: int = 3,
 ) -> tuple[Any, dict[str, float], dict[str, Any]]:
-    """Return tuned estimator, metrics, and best hyperparameters."""
+    """Tune model via GridSearchCV and return best estimator, metrics, and hyperparameters."""
     featured = add_calendar_features(df)
     features = featured[FEATURE_COLUMNS]
     target = featured[TARGET_COLUMN]
