@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
 
 import numpy as np
 import pandas as pd
+
+
+class DriftResult(TypedDict):
+    """Result of feature drift detection."""
+
+    has_drift: bool
+    psi_by_feature: dict[str, float]
 
 
 def compute_psi(
@@ -36,7 +43,7 @@ def detect_feature_drift(
     current_df: pd.DataFrame,
     columns: list[str] | None = None,
     psi_threshold: float = 0.1,
-) -> dict[str, Any]:
+) -> DriftResult:
     """Detect feature drift by comparing reference and current distributions using PSI."""
     if columns is None:
         columns = reference_df.select_dtypes(include=[np.number]).columns.tolist()
