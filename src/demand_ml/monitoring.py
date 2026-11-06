@@ -9,7 +9,7 @@ import pandas as pd
 
 
 class DriftResult(TypedDict):
-    """Result of feature drift detection."""
+    """Feature drift detection result."""
 
     has_drift: bool
     psi_by_feature: dict[str, float]
@@ -18,10 +18,10 @@ class DriftResult(TypedDict):
 def compute_psi(
     reference: pd.Series, current: pd.Series, n_bins: int = 10, epsilon: float = 1e-10
 ) -> float:
-    """Compute Population Stability Index (PSI) for a single numeric feature."""
+    """Compute Population Stability Index."""
 
     def _psi_for_series(ref: pd.Series, cur: pd.Series) -> float:
-        """Compute PSI between reference and current distributions using histograms."""
+        """Compute PSI via histogram."""
         min_val = min(ref.min(), cur.min())
         max_val = max(ref.max(), cur.max())
         bins = np.linspace(min_val, max_val, n_bins + 1)
@@ -44,7 +44,7 @@ def detect_feature_drift(
     columns: list[str] | None = None,
     psi_threshold: float = 0.1,
 ) -> DriftResult:
-    """Detect feature drift by comparing reference and current distributions using PSI."""
+    """Detect feature drift via PSI."""
     if columns is None:
         columns = reference_df.select_dtypes(include=[np.number]).columns.tolist()
 

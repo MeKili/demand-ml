@@ -11,7 +11,7 @@ from demand_ml.tracking import log_training_run
 
 
 def main() -> None:
-    """Train baseline model on UCI data, log metrics and feature importance to MLflow."""
+    """Train baseline model and log to MLflow."""
     settings = get_settings()
     df = load_uci_bike_sharing(settings.data_dir)
     model, metrics = train_model(

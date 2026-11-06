@@ -12,7 +12,7 @@ TARGET_COLUMN = "count"
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Extract temporal features (hour, day of week, month, weekend flag) from timestamp."""
+    """Extract temporal features from timestamp."""
     out = df.copy()
     ts = pd.to_datetime(out["timestamp"])
     out["hour"] = ts.dt.hour

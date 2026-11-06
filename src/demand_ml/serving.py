@@ -21,10 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
-    """Validate that feature list(s) have the correct number of features.
-
-    Raises HTTPException with status 400 if count mismatch.
-    """
+    """Validate feature count; raise HTTPException if mismatch."""
     if single:
         if len(feature_list) != len(FEATURE_COLUMNS):
             raise HTTPException(
@@ -41,7 +38,7 @@ def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Manage application lifecycle: load model on startup, log shutdown."""
+    """Load model on startup; log shutdown."""
     settings = get_settings()
     model_path = Path(settings.model_dir) / settings.model_filename
     if model_path.exists():
@@ -58,14 +55,14 @@ app = FastAPI(title="demand-ml", version="0.1.0", lifespan=lifespan)
 
 
 class HealthResponse(BaseModel):
-    """Health check response."""
+    """Service health status."""
 
     status: str
     message: str
 
 
 class PredictRequest(BaseModel):
-    """Prediction request with feature values."""
+    """Single prediction request."""
 
     model_config = ConfigDict(
         json_schema_extra={"example": {"features": [15.5, 60, 10, 9, 3, 8, 1]}}
@@ -75,25 +72,25 @@ class PredictRequest(BaseModel):
 
 
 class PredictResponse(BaseModel):
-    """Prediction response with forecasted demand."""
+    """Forecasted demand."""
 
     predicted_demand: float
 
 
 class BatchPredictRequest(BaseModel):
-    """Batch prediction request with multiple feature sets."""
+    """Batch prediction request."""
 
     features_list: list[list[float]]
 
 
 class BatchPredictResponse(BaseModel):
-    """Batch prediction response with multiple forecasts."""
+    """Multiple forecasts."""
 
     predictions: list[float]
 
 
 class DriftCheckRequest(BaseModel):
-    """Drift check request with reference and current feature data."""
+    """Feature drift check request."""
 
     reference_features: list[list[float]]
     current_features: list[list[float]]
@@ -101,7 +98,7 @@ class DriftCheckRequest(BaseModel):
 
 
 class DriftCheckResponse(BaseModel):
-    """Drift detection response indicating if drift was found."""
+    """Drift detection result."""
 
     has_drift: bool
     psi_by_feature: dict[str, float]
@@ -109,14 +106,14 @@ class DriftCheckResponse(BaseModel):
 
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
-    """Check if the service is running."""
+    """Service health check."""
     logger.debug("Health check requested")
     return HealthResponse(status="ok", message="demand-ml service is running")
 
 
 @app.post("/predict", response_model=PredictResponse)
 def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
-    """Return demand forecast for given features."""
+    """Forecast demand."""
     model = getattr(req.app.state, "model", None)
     if model is None:
         logger.error("Prediction requested but model not loaded")
@@ -144,7 +141,7 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
 
 @app.post("/predict-batch", response_model=BatchPredictResponse)
 def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictResponse:
-    """Return demand forecasts for multiple feature sets."""
+    """Forecast batch demand."""
     model = getattr(req.app.state, "model", None)
     if model is None:
         logger.error("Batch prediction requested but model not loaded")
@@ -182,7 +179,7 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
 
 @app.post("/drift-check", response_model=DriftCheckResponse)
 def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
-    """Detect feature drift between reference and current data via PSI."""
+    """Check for feature drift."""
     if not request.reference_features:
         logger.warning("Drift check requested with empty reference_features")
         raise HTTPException(status_code=400, detail="reference_features cannot be empty")

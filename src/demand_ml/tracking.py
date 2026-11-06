@@ -18,10 +18,7 @@ def log_training_run(
     params: dict[str, Any] | None = None,
     feature_importance: dict[str, float] | None = None,
 ) -> str:
-    """Log model and training metadata (metrics, params, features) to MLflow experiment.
-
-    Returns the MLflow run ID.
-    """
+    """Log training metadata to MLflow; return run ID."""
     if artifact_uri:
         mlflow.set_tracking_uri(f"file:{artifact_uri}")
 

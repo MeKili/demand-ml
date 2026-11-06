@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
-    """Generate synthetic hourly bike-share demand data for testing and development."""
+    """Generate synthetic demand data for testing."""
     rng = np.random.default_rng(seed)
     timestamps = pd.date_range("2026-01-01", periods=n_rows, freq="h")
     temp = rng.normal(15.0, 8.0, n_rows)
@@ -33,7 +33,7 @@ def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
 
 
 def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
-    """Download (if needed) and cache UCI Bike Sharing dataset with normalized features."""
+    """Load UCI dataset from cache or download; return normalized features."""
     cache_path = Path(data_dir) / "bike_sharing.csv"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
