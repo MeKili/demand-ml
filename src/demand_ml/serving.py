@@ -19,6 +19,17 @@ from demand_ml.persistence import load_model, predict
 
 logger = logging.getLogger(__name__)
 
+FEATURE_BOUNDS = {
+    "temp": (-10.0, 50.0),
+    "humidity": (0.0, 100.0),
+    "windspeed": (0.0, 100.0),
+    "hour": (0.0, 23.0),
+    "dayofweek": (0.0, 6.0),
+    "month": (1.0, 12.0),
+    "is_weekend": (0.0, 1.0),
+}
+"""Feature value bounds for input validation."""
+
 
 def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
     """Validate feature count; raise HTTPException if mismatch."""
@@ -33,6 +44,17 @@ def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
             raise HTTPException(
                 status_code=400,
                 detail=f"All feature sets must have {len(FEATURE_COLUMNS)} features",
+            )
+
+
+def _validate_feature_values(features: list[float]) -> None:
+    """Validate feature values are within expected bounds."""
+    for col, value in zip(FEATURE_COLUMNS, features, strict=True):
+        min_val, max_val = FEATURE_BOUNDS[col]
+        if not (min_val <= value <= max_val):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Feature '{col}' value {value} outside bounds [{min_val}, {max_val}]",
             )
 
 
@@ -120,10 +142,9 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
         raise HTTPException(status_code=503, detail="Model not loaded at startup")
     try:
         _validate_feature_count(request.features, single=True)
+        _validate_feature_values(request.features)
     except HTTPException:
-        logger.warning(
-            f"Invalid feature count: expected {len(FEATURE_COLUMNS)}, got {len(request.features)}"
-        )
+        logger.warning("Invalid features: count mismatch or out-of-bounds values")
         raise
     try:
         features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
@@ -161,8 +182,10 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
         )
     try:
         _validate_feature_count(request.features_list, single=False)
+        for features in request.features_list:
+            _validate_feature_values(features)
     except HTTPException:
-        logger.warning("Batch prediction: invalid feature count in some samples")
+        logger.warning("Batch prediction: invalid feature count or out-of-bounds values")
         raise
     try:
         features_df = pd.DataFrame(request.features_list, columns=FEATURE_COLUMNS)
@@ -188,13 +211,21 @@ def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
         raise HTTPException(status_code=400, detail="current_features cannot be empty")
     try:
         _validate_feature_count(request.reference_features, single=False)
+        for features in request.reference_features:
+            _validate_feature_values(features)
     except HTTPException:
-        logger.warning("Drift check: invalid feature count in reference_features")
+        logger.warning(
+            "Drift check: invalid feature count or out-of-bounds values in reference_features"
+        )
         raise
     try:
         _validate_feature_count(request.current_features, single=False)
+        for features in request.current_features:
+            _validate_feature_values(features)
     except HTTPException:
-        logger.warning("Drift check: invalid feature count in current_features")
+        logger.warning(
+            "Drift check: invalid feature count or out-of-bounds values in current_features"
+        )
         raise
     try:
         reference_df = pd.DataFrame(request.reference_features, columns=FEATURE_COLUMNS)

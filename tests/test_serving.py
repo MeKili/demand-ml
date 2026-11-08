@@ -320,6 +320,112 @@ def test_drift_check_invalid_feature_count() -> None:
         assert response.status_code == 400
 
 
+def test_predict_features_out_of_bounds_temp() -> None:
+    """Test /predict endpoint rejects temperature out of bounds."""
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/predict")(predict_demand)
+
+    with TestClient(app) as client:
+        # Temperature 100°C is out of bounds (max 50°C)
+        request_payload = {"features": [100.0, 60.0, 10.0, 9, 3, 8, 1]}
+        response = client.post("/predict", json=request_payload)
+        assert response.status_code == 400
+        assert "temp" in response.json()["detail"]
+
+
+def test_predict_features_out_of_bounds_humidity() -> None:
+    """Test /predict endpoint rejects humidity out of bounds."""
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/predict")(predict_demand)
+
+    with TestClient(app) as client:
+        # Humidity 150% is out of bounds (max 100%)
+        request_payload = {"features": [15.5, 150.0, 10.0, 9, 3, 8, 1]}
+        response = client.post("/predict", json=request_payload)
+        assert response.status_code == 400
+        assert "humidity" in response.json()["detail"]
+
+
+def test_predict_batch_features_out_of_bounds() -> None:
+    """Test /predict-batch endpoint rejects out-of-bounds features."""
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/predict-batch")(predict_batch)
+
+    with TestClient(app) as client:
+        # Hour 25 is out of bounds (max 23)
+        request_payload = {
+            "features_list": [
+                [15.5, 60.0, 10.0, 9, 3, 8, 1],
+                [16.0, 65.0, 11.0, 25, 4, 9, 0],
+            ]
+        }
+        response = client.post("/predict-batch", json=request_payload)
+        assert response.status_code == 400
+        assert "hour" in response.json()["detail"]
+
+
+def test_drift_check_features_out_of_bounds() -> None:
+    """Test /drift-check endpoint rejects out-of-bounds features."""
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = None
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.post("/drift-check")(check_drift)
+
+    with TestClient(app) as client:
+        # Month 13 is out of bounds (max 12)
+        request_payload = {
+            "reference_features": [[15.5, 60.0, 10.0, 9, 3, 8, 1]],
+            "current_features": [[15.5, 60.0, 10.0, 9, 3, 13, 0]],
+            "psi_threshold": 0.1,
+        }
+        response = client.post("/drift-check", json=request_payload)
+        assert response.status_code == 400
+        assert "month" in response.json()["detail"]
+
+
 def test_logging_on_prediction(caplog: Any) -> None:
     """Test that prediction endpoint logs correctly."""
     import logging
