@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import logging
+
 from demand_ml.config import get_settings
 from demand_ml.data import load_uci_bike_sharing
 from demand_ml.features import FEATURE_COLUMNS
 from demand_ml.model import compute_feature_importance, train_model
 from demand_ml.persistence import save_model
 from demand_ml.tracking import log_training_run
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -17,15 +21,15 @@ def main() -> None:
     model, metrics = train_model(
         df, test_size=settings.test_size, random_state=settings.random_state
     )
-    print(f"Holdout: MAE={metrics['mae_holdout']:.2f} RMSE={metrics['rmse_holdout']:.2f}")
-    print(
+    logger.info(f"Holdout: MAE={metrics['mae_holdout']:.2f} RMSE={metrics['rmse_holdout']:.2f}")
+    logger.info(
         f"CV: MAE={metrics['mae_cv_mean']:.2f}±{metrics['mae_cv_std']:.2f} "
         f"RMSE={metrics['rmse_cv_mean']:.2f}±{metrics['rmse_cv_std']:.2f}"
     )
 
     model_path = f"{settings.model_dir}/baseline.joblib"
     save_model(model, model_path)
-    print(f"Model saved to {model_path}")
+    logger.info(f"Model saved to {model_path}")
 
     feature_importance = compute_feature_importance(model, FEATURE_COLUMNS)
     run_id = log_training_run(
@@ -35,7 +39,7 @@ def main() -> None:
         run_name="baseline",
         feature_importance=feature_importance,
     )
-    print(f"MLflow run ID: {run_id}")
+    logger.info(f"MLflow run ID: {run_id}")
 
 
 if __name__ == "__main__":
