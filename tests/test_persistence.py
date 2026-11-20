@@ -4,9 +4,15 @@ import tempfile
 from pathlib import Path
 
 from demand_ml.data import make_synthetic_demand
-from demand_ml.features import FEATURE_COLUMNS, add_calendar_features
+from demand_ml.features import FEATURE_COLUMNS, add_calendar_features, compute_feature_bounds
 from demand_ml.model import train_model
-from demand_ml.persistence import load_model, predict, save_model
+from demand_ml.persistence import (
+    load_feature_bounds,
+    load_model,
+    predict,
+    save_feature_bounds,
+    save_model,
+)
 
 
 def test_save_and_load_model() -> None:
@@ -75,3 +81,43 @@ def test_save_model_creates_directories() -> None:
         fpath = Path(tmpdir) / "nested" / "dirs" / "model.joblib"
         save_model(model, fpath)
         assert fpath.exists()
+
+
+def test_compute_feature_bounds() -> None:
+    df = make_synthetic_demand(n_rows=100, seed=8)
+    featured = add_calendar_features(df)
+    bounds = compute_feature_bounds(featured[FEATURE_COLUMNS])
+
+    assert len(bounds) == len(FEATURE_COLUMNS)
+    for col in FEATURE_COLUMNS:
+        assert col in bounds
+        min_val, max_val = bounds[col]
+        assert min_val <= max_val
+
+
+def test_save_and_load_feature_bounds() -> None:
+    df = make_synthetic_demand(n_rows=100, seed=9)
+    featured = add_calendar_features(df)
+    bounds = compute_feature_bounds(featured[FEATURE_COLUMNS])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpath = Path(tmpdir) / "bounds.json"
+        save_feature_bounds(bounds, fpath)
+        assert fpath.exists()
+
+        loaded = load_feature_bounds(fpath)
+        assert loaded == bounds
+
+
+def test_save_feature_bounds_creates_directories() -> None:
+    df = make_synthetic_demand(n_rows=100, seed=10)
+    featured = add_calendar_features(df)
+    bounds = compute_feature_bounds(featured[FEATURE_COLUMNS])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpath = Path(tmpdir) / "nested" / "dirs" / "bounds.json"
+        save_feature_bounds(bounds, fpath)
+        assert fpath.exists()
+
+        loaded = load_feature_bounds(fpath)
+        assert loaded == bounds

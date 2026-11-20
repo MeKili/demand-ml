@@ -15,11 +15,11 @@ from pydantic import BaseModel, ConfigDict
 from demand_ml.config import get_settings
 from demand_ml.features import FEATURE_COLUMNS
 from demand_ml.monitoring import detect_feature_drift
-from demand_ml.persistence import load_model, predict
+from demand_ml.persistence import load_feature_bounds, load_model, predict
 
 logger = logging.getLogger(__name__)
 
-FEATURE_BOUNDS = {
+FEATURE_BOUNDS: dict[str, tuple[float, float]] = {
     "temp": (-10.0, 50.0),
     "humidity": (0.0, 100.0),
     "windspeed": (0.0, 100.0),
@@ -28,7 +28,7 @@ FEATURE_BOUNDS = {
     "month": (1.0, 12.0),
     "is_weekend": (0.0, 1.0),
 }
-"""Feature value bounds for input validation."""
+"""Feature bounds for input validation; loaded from file at startup if available."""
 
 
 def _validate_feature_count(feature_list: Any, single: bool = True) -> None:
@@ -60,7 +60,7 @@ def _validate_feature_values(features: list[float]) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Load model on startup; log shutdown."""
+    """Load model and feature bounds on startup; log shutdown."""
     settings = get_settings()
     model_path = Path(settings.model_dir) / settings.model_filename
     if model_path.exists():
@@ -69,6 +69,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     else:
         app.state.model = None
         logger.warning(f"Model not found at {model_path}")
+
+    bounds_path = Path(settings.model_dir) / "feature_bounds.json"
+    if bounds_path.exists():
+        try:
+            FEATURE_BOUNDS.clear()
+            FEATURE_BOUNDS.update(load_feature_bounds(bounds_path))
+            logger.info(f"Feature bounds loaded from {bounds_path}")
+        except Exception as e:
+            logger.warning(f"Failed to load feature bounds from {bounds_path}: {e}")
+            logger.info("Using default feature bounds")
+    else:
+        logger.debug(f"Feature bounds file not found at {bounds_path}; using defaults")
+
     yield
     logger.info("Shutting down demand-ml service")
 

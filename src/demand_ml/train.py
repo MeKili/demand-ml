@@ -6,9 +6,9 @@ import logging
 
 from demand_ml.config import get_settings
 from demand_ml.data import load_uci_bike_sharing
-from demand_ml.features import FEATURE_COLUMNS
+from demand_ml.features import FEATURE_COLUMNS, add_calendar_features, compute_feature_bounds
 from demand_ml.model import compute_feature_importance, train_model
-from demand_ml.persistence import save_model
+from demand_ml.persistence import save_feature_bounds, save_model
 from demand_ml.tracking import log_training_run
 
 logger = logging.getLogger(__name__)
@@ -30,6 +30,12 @@ def main() -> None:
     model_path = f"{settings.model_dir}/baseline.joblib"
     save_model(model, model_path)
     logger.info(f"Model saved to {model_path}")
+
+    featured = add_calendar_features(df)
+    bounds = compute_feature_bounds(featured[FEATURE_COLUMNS])
+    bounds_path = f"{settings.model_dir}/feature_bounds.json"
+    save_feature_bounds(bounds, bounds_path)
+    logger.info(f"Feature bounds saved to {bounds_path}")
 
     feature_importance = compute_feature_importance(model, FEATURE_COLUMNS)
     run_id = log_training_run(

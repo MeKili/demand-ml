@@ -20,3 +20,12 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
     out["month"] = ts.dt.month
     out["is_weekend"] = (ts.dt.dayofweek >= 5).astype(int)
     return out
+
+
+def compute_feature_bounds(features: pd.DataFrame) -> dict[str, tuple[float, float]]:
+    """Compute min/max bounds for each feature."""
+    bounds = {}
+    for col in FEATURE_COLUMNS:
+        if col in features.columns:
+            bounds[col] = (float(features[col].min()), float(features[col].max()))
+    return bounds

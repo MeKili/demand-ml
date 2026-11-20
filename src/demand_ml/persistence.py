@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,22 @@ def save_model(model: Any, filepath: str | Path) -> None:
 def load_model(filepath: str | Path) -> Any:
     """Load model from disk."""
     return joblib.load(filepath)
+
+
+def save_feature_bounds(bounds: dict[str, tuple[float, float]], filepath: str | Path) -> None:
+    """Save feature bounds to JSON file."""
+    path = Path(filepath)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w") as f:
+        json.dump(bounds, f)
+
+
+def load_feature_bounds(filepath: str | Path) -> dict[str, tuple[float, float]]:
+    """Load feature bounds from JSON file."""
+    path = Path(filepath)
+    with open(path) as f:
+        raw = json.load(f)
+    return {k: tuple(v) for k, v in raw.items()}
 
 
 def predict(
