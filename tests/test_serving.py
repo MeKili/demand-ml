@@ -11,7 +11,7 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 
 from demand_ml.data import make_synthetic_demand
 from demand_ml.features import FEATURE_COLUMNS, add_calendar_features
-from demand_ml.serving import check_drift, health, predict_batch, predict_demand
+from demand_ml.serving import check_drift, feature_importance, health, predict_batch, predict_demand
 
 
 def test_health() -> None:
@@ -452,3 +452,50 @@ def test_logging_on_prediction(caplog: Any) -> None:
 
     assert response.status_code == 200
     assert any("Prediction completed" in record.message for record in caplog.records)
+
+
+def test_feature_importance_with_model() -> None:
+    """Test /feature-importance endpoint returns importance scores."""
+    df = make_synthetic_demand(n_rows=100, seed=42)
+    featured = add_calendar_features(df)
+    features = featured[FEATURE_COLUMNS]
+    target = featured["count"]
+
+    model = HistGradientBoostingRegressor(random_state=42)
+    model.fit(features, target)
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = model
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.get("/feature-importance")(feature_importance)
+
+    with TestClient(app) as client:
+        response = client.get("/feature-importance")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "importance_by_feature" in data
+        assert isinstance(data["importance_by_feature"], dict)
+        for feature_name, importance_score in data["importance_by_feature"].items():
+            assert feature_name in FEATURE_COLUMNS
+            assert isinstance(importance_score, float)
+            assert importance_score >= 0
+
+
+def test_feature_importance_missing_model() -> None:
+    """Test /feature-importance endpoint with missing model."""
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = None
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.get("/feature-importance")(feature_importance)
+
+    with TestClient(app) as client:
+        response = client.get("/feature-importance")
+        assert response.status_code == 503

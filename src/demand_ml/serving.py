@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 
 from demand_ml.config import get_settings
 from demand_ml.features import FEATURE_COLUMNS
+from demand_ml.model import compute_feature_importance
 from demand_ml.monitoring import detect_feature_drift
 from demand_ml.persistence import load_feature_bounds, load_model, predict
 
@@ -139,6 +140,12 @@ class DriftCheckResponse(BaseModel):
     psi_by_feature: dict[str, float]
 
 
+class FeatureImportanceResponse(BaseModel):
+    """Feature importance scores from trained model."""
+
+    importance_by_feature: dict[str, float]
+
+
 @app.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """Service health check."""
@@ -211,6 +218,22 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
     except Exception as e:
         logger.error(f"Batch prediction failed: {e}")
         raise HTTPException(status_code=400, detail=f"Batch prediction failed: {e}") from e
+
+
+@app.get("/feature-importance", response_model=FeatureImportanceResponse)
+def feature_importance(req: Request) -> FeatureImportanceResponse:
+    """Get feature importance scores from trained model."""
+    model = getattr(req.app.state, "model", None)
+    if model is None:
+        logger.error("Feature importance requested but model not loaded")
+        raise HTTPException(status_code=503, detail="Model not loaded at startup")
+    try:
+        importance = compute_feature_importance(model, FEATURE_COLUMNS)
+        logger.info(f"Feature importance retrieved: {len(importance)} features")
+        return FeatureImportanceResponse(importance_by_feature=importance)
+    except Exception as e:
+        logger.error(f"Feature importance retrieval failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Feature importance failed: {e}") from e
 
 
 @app.post("/drift-check", response_model=DriftCheckResponse)
