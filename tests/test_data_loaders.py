@@ -1,13 +1,14 @@
 """Tests for data loaders (offline synthetic generator and UCI caching logic)."""
 
 import tempfile
+import urllib.error
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from demand_ml.data import load_uci_bike_sharing, make_synthetic_demand
+from demand_ml.data import _download_with_retries, load_uci_bike_sharing, make_synthetic_demand
 
 
 def test_make_synthetic_demand_reproducible() -> None:
@@ -37,22 +38,30 @@ def test_load_uci_bike_sharing_caches_locally() -> None:
 
     with tempfile.TemporaryDirectory() as tmpdir:
         cache_file = Path(tmpdir) / "bike_sharing.csv"
-        call_count = [0]
+        urlopen_count = [0]
 
-        def mock_read_csv(path: str | Path, *args: object, **kwargs: object) -> pd.DataFrame:
-            if str(path).startswith("http"):
-                call_count[0] += 1
-            return mock_uci_df
+        csv_lines = [",".join(mock_uci_df.columns)]
+        for _, row in mock_uci_df.iterrows():
+            csv_lines.append(",".join(str(v) for v in row))
+        csv_data = "\n".join(csv_lines)
 
-        with patch("pandas.read_csv", side_effect=mock_read_csv):
+        def mock_urlopen(*args: object, **kwargs: object) -> MagicMock:
+            urlopen_count[0] += 1
+            mock_response = MagicMock()
+            mock_response.read.return_value = csv_data.encode("utf-8")
+            mock_response.__enter__.return_value = mock_response
+            mock_response.__exit__.return_value = None
+            return mock_response
+
+        with patch("urllib.request.urlopen", side_effect=mock_urlopen):
             df = load_uci_bike_sharing(data_dir=tmpdir)
-            assert call_count[0] == 1
+            assert urlopen_count[0] == 1
             assert cache_file.exists()
             assert len(df) == 3
             assert set(df.columns) == {"timestamp", "temp", "humidity", "windspeed", "count"}
 
             df2 = load_uci_bike_sharing(data_dir=tmpdir)
-            assert call_count[0] == 1
+            assert urlopen_count[0] == 1
             pd.testing.assert_frame_equal(df, df2)
 
 
@@ -66,12 +75,62 @@ def test_load_uci_bike_sharing_missing_columns() -> None:
     )
 
     with tempfile.TemporaryDirectory() as tmpdir:
+        csv_lines = [",".join(incomplete_df.columns)]
+        for _, row in incomplete_df.iterrows():
+            csv_lines.append(",".join(str(v) for v in row))
+        csv_data = "\n".join(csv_lines)
 
-        def mock_read_csv(path: str | Path, *args: object, **kwargs: object) -> pd.DataFrame:
-            return incomplete_df
+        def mock_urlopen(*args: object, **kwargs: object) -> MagicMock:
+            mock_response = MagicMock()
+            mock_response.read.return_value = csv_data.encode("utf-8")
+            mock_response.__enter__.return_value = mock_response
+            mock_response.__exit__.return_value = None
+            return mock_response
 
         with (
-            patch("pandas.read_csv", side_effect=mock_read_csv),
+            patch("urllib.request.urlopen", side_effect=mock_urlopen),
             pytest.raises(ValueError, match="Missing required columns"),
         ):
             load_uci_bike_sharing(data_dir=tmpdir)
+
+
+def test_download_with_retries_success() -> None:
+    csv_data = "a,b\n1,2\n3,4"
+    with patch("urllib.request.urlopen") as mock_urlopen:
+        mock_response = MagicMock()
+        mock_response.read.return_value = csv_data.encode("utf-8")
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        result = _download_with_retries("http://example.com/data.csv")
+        assert result == csv_data
+        assert mock_urlopen.call_count == 1
+
+
+def test_download_with_retries_exponential_backoff() -> None:
+    csv_data = "a,b\n1,2"
+    with patch("urllib.request.urlopen") as mock_urlopen, patch("time.sleep") as mock_sleep:
+        mock_response = MagicMock()
+        mock_response.read.return_value = csv_data.encode("utf-8")
+        mock_response.__enter__.return_value = mock_response
+
+        mock_urlopen.side_effect = [
+            urllib.error.URLError("Connection timeout"),
+            urllib.error.URLError("Connection timeout"),
+            mock_response,
+        ]
+
+        result = _download_with_retries("http://example.com/data.csv", max_retries=3)
+        assert result == csv_data
+        assert mock_urlopen.call_count == 3
+        assert mock_sleep.call_count == 2
+        mock_sleep.assert_any_call(1.0)
+        mock_sleep.assert_any_call(2.0)
+
+
+def test_download_with_retries_all_fail() -> None:
+    with patch("urllib.request.urlopen") as mock_urlopen, patch("time.sleep"):
+        mock_urlopen.side_effect = urllib.error.URLError("Connection failed")
+
+        with pytest.raises(urllib.error.URLError):
+            _download_with_retries("http://example.com/data.csv", max_retries=2)

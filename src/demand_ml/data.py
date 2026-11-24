@@ -2,10 +2,34 @@
 
 from __future__ import annotations
 
+import io
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+
+def _download_with_retries(
+    url: str,
+    max_retries: int = 3,
+    base_delay: float = 1.0,
+) -> str:
+    """Download URL content with exponential backoff retries on network errors."""
+    delay = base_delay
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(url, timeout=30) as response:
+                content: bytes = response.read()
+                return content.decode("utf-8")
+        except (urllib.error.URLError, urllib.error.HTTPError):
+            if attempt == max_retries - 1:
+                raise
+            delay_secs = delay * (2**attempt)
+            time.sleep(delay_secs)
+    raise RuntimeError(f"Failed to download {url} after {max_retries} attempts")
 
 
 def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
@@ -33,7 +57,7 @@ def make_synthetic_demand(n_rows: int = 500, seed: int = 42) -> pd.DataFrame:
 
 
 def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
-    """Load UCI dataset from cache or download; return normalized features."""
+    """Load UCI dataset from cache or download with retry; return normalized features."""
     cache_path = Path(data_dir) / "bike_sharing.csv"
     cache_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -41,7 +65,8 @@ def load_uci_bike_sharing(data_dir: str = "data") -> pd.DataFrame:
         df = pd.read_csv(cache_path)
     else:
         url = "https://archive.ics.uci.edu/ml/machine-learning-databases/00275/hour.csv"
-        df = pd.read_csv(url)
+        csv_content = _download_with_retries(url)
+        df = pd.read_csv(io.StringIO(csv_content))
         df.to_csv(cache_path, index=False)
 
     required_cols = ["dteday", "hr", "temp", "hum", "windspeed", "cnt"]
