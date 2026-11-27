@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -10,10 +11,18 @@ from typing import Any
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Request
+from prometheus_client import generate_latest
 from pydantic import BaseModel, ConfigDict
 
 from demand_ml.config import get_settings
 from demand_ml.features import FEATURE_COLUMNS
+from demand_ml.metrics import (
+    ACTIVE_MODELS,
+    MODEL_DRIFT_ALERTS,
+    PREDICTION_ERRORS,
+    REQUEST_COUNT,
+    REQUEST_LATENCY,
+)
 from demand_ml.model import compute_feature_importance
 from demand_ml.monitoring import detect_feature_drift
 from demand_ml.persistence import load_feature_bounds, load_model, predict
@@ -67,9 +76,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if model_path.exists():
         app.state.model = load_model(model_path)
         logger.info(f"Model loaded from {model_path}")
+        ACTIVE_MODELS.set(1)
     else:
         app.state.model = None
         logger.warning(f"Model not found at {model_path}")
+        ACTIVE_MODELS.set(0)
 
     bounds_path = Path(settings.model_dir) / "feature_bounds.json"
     if bounds_path.exists():
@@ -85,9 +96,26 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     yield
     logger.info("Shutting down demand-ml service")
+    ACTIVE_MODELS.set(0)
 
 
 app = FastAPI(title="demand-ml", version="0.1.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def track_metrics(request: Request, call_next):  # type: ignore
+    """Track request metrics: count and latency."""
+    path = request.url.path
+    if path.startswith("/metrics") or path.startswith("/docs") or path.startswith("/openapi"):
+        return await call_next(request)
+
+    endpoint = path.split("/")[1] or "root"
+    REQUEST_COUNT.labels(endpoint=endpoint).inc()
+    start_time = time.time()
+    response = await call_next(request)
+    latency = time.time() - start_time
+    REQUEST_LATENCY.labels(endpoint=endpoint).observe(latency)
+    return response
 
 
 class HealthResponse(BaseModel):
@@ -165,6 +193,7 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
         _validate_feature_values(request.features)
     except HTTPException:
         logger.warning("Invalid features: count mismatch or out-of-bounds values")
+        PREDICTION_ERRORS.labels(error_type="bounds_violation").inc()
         raise
     try:
         features_df = pd.DataFrame([request.features], columns=FEATURE_COLUMNS)
@@ -174,9 +203,11 @@ def predict_demand(request: PredictRequest, req: Request) -> PredictResponse:
         return PredictResponse(predicted_demand=result)
     except FileNotFoundError as e:
         logger.error(f"Model file not found: {e}")
+        PREDICTION_ERRORS.labels(error_type="model_load_error").inc()
         raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
     except Exception as e:
         logger.error(f"Prediction failed: {e}")
+        PREDICTION_ERRORS.labels(error_type="model_error").inc()
         raise HTTPException(status_code=400, detail=f"Prediction failed: {e}") from e
 
 
@@ -189,6 +220,7 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
         raise HTTPException(status_code=503, detail="Model not loaded at startup")
     if not request.features_list:
         logger.warning("Batch prediction requested with empty features_list")
+        PREDICTION_ERRORS.labels(error_type="empty_batch").inc()
         raise HTTPException(status_code=400, detail="features_list cannot be empty")
     max_batch_size = 1000
     if len(request.features_list) > max_batch_size:
@@ -196,6 +228,7 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
             f"Batch prediction requested with {len(request.features_list)} samples, "
             f"exceeds max {max_batch_size}"
         )
+        PREDICTION_ERRORS.labels(error_type="batch_size_exceeded").inc()
         raise HTTPException(
             status_code=400,
             detail=f"Batch size {len(request.features_list)} exceeds max {max_batch_size}",
@@ -206,6 +239,7 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
             _validate_feature_values(features)
     except HTTPException:
         logger.warning("Batch prediction: invalid feature count or out-of-bounds values")
+        PREDICTION_ERRORS.labels(error_type="bounds_violation").inc()
         raise
     try:
         features_df = pd.DataFrame(request.features_list, columns=FEATURE_COLUMNS)
@@ -214,9 +248,11 @@ def predict_batch(request: BatchPredictRequest, req: Request) -> BatchPredictRes
         return BatchPredictResponse(predictions=preds.tolist())
     except FileNotFoundError as e:
         logger.error(f"Model file not found: {e}")
+        PREDICTION_ERRORS.labels(error_type="model_load_error").inc()
         raise HTTPException(status_code=503, detail=f"Model not found: {e}") from e
     except Exception as e:
         logger.error(f"Batch prediction failed: {e}")
+        PREDICTION_ERRORS.labels(error_type="model_error").inc()
         raise HTTPException(status_code=400, detail=f"Batch prediction failed: {e}") from e
 
 
@@ -271,6 +307,7 @@ def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
         )
         if drift_result["has_drift"]:
             logger.warning(f"Feature drift detected: {drift_result['psi_by_feature']}")
+            MODEL_DRIFT_ALERTS.labels(severity="warning").inc()
         else:
             logger.info("Drift check completed: no drift detected")
         return DriftCheckResponse(
@@ -280,3 +317,9 @@ def check_drift(request: DriftCheckRequest) -> DriftCheckResponse:
     except Exception as e:
         logger.error(f"Drift check failed: {e}")
         raise HTTPException(status_code=400, detail=f"Drift check failed: {e}") from e
+
+
+@app.get("/metrics")
+def metrics() -> str:
+    """Expose Prometheus metrics."""
+    return generate_latest().decode("utf-8")

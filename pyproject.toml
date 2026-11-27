@@ -13,6 +13,7 @@ dependencies = [
     "mlflow>=2.12",
     "fastapi>=0.104",
     "uvicorn[standard]>=0.24",
+    "prometheus-client>=0.20",
 ]
 
 # Added as the service grows:

@@ -11,7 +11,14 @@ from sklearn.ensemble import HistGradientBoostingRegressor
 
 from demand_ml.data import make_synthetic_demand
 from demand_ml.features import FEATURE_COLUMNS, add_calendar_features
-from demand_ml.serving import check_drift, feature_importance, health, predict_batch, predict_demand
+from demand_ml.serving import (
+    check_drift,
+    feature_importance,
+    health,
+    metrics,
+    predict_batch,
+    predict_demand,
+)
 
 
 def test_health() -> None:
@@ -499,3 +506,24 @@ def test_feature_importance_missing_model() -> None:
     with TestClient(app) as client:
         response = client.get("/feature-importance")
         assert response.status_code == 503
+
+
+def test_metrics_endpoint() -> None:
+    """Test /metrics endpoint returns Prometheus metrics."""
+
+    @asynccontextmanager
+    async def test_lifespan(app: FastAPI) -> Any:  # type: ignore
+        app.state.model = None
+        yield
+
+    app = FastAPI(lifespan=test_lifespan)
+    app.get("/metrics")(metrics)
+
+    with TestClient(app) as client:
+        response = client.get("/metrics")
+        assert response.status_code == 200
+        content = response.text
+        assert "demand_ml_requests_total" in content
+        assert "demand_ml_request_duration_seconds" in content
+        assert "demand_ml_prediction_errors_total" in content
+        assert "demand_ml_active_models" in content
